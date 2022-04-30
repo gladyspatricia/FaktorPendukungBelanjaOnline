@@ -1,0 +1,144 @@
+---
+title: "Faktor Seseorang Berbelanja Online"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Import Library
+Tahap pertama yang dilakukan adalah memanggil libraries yang dibutuhkan. Library ini memiliki fungsi yang berbeda-beda, mulai dari pengambilan data hingga modelling
+
+```{r}
+library(readxl)
+library(ggplot2)
+library(party)
+library(caret)
+library(e1071)
+```
+
+
+## Import Dataset
+```{r}
+df <- read_excel("BelanjaOnline.xlsx")
+str(df)
+head(df)
+```
+## Data Preparation
+Data preparation digunakan untuk mempersiapkan data sebelum dibentuk ke dalam model.
+
+### Missing Value
+Pengecekan missing value menghasilkan output jumlah NA = 0, artinya tidak ada data yang hilang di dalam data frame dan tidak memerlukan proses lebih lanjut untuk handling missing value.
+
+```{r}
+sum(is.na(df))
+```
+
+```{r}
+# PENYARINGAN DATA YANG TIDAK DIPAKAI UNTUK PENENTUAN DECISION TREE
+
+head(df)
+
+dfTree <- df[c(1, 2, 3, 4, 5, 6, 8, 9,11)]
+dfTree$Status<-as.factor(dfTree$Status)
+dfTree$JenisKelamin<-as.factor(dfTree$JenisKelamin)
+dfTree$KemungkinanBelanja<-as.factor(dfTree$KemungkinanBelanja)
+dfTree
+```
+
+## Describe Data
+
+### Descriptive Statistics
+```{r}
+summary(dfTree)
+
+```
+
+### Visualization
+
+Diagram pie jenis kelamin responden:
+```{r}
+slices <- table(dfTree$JenisKelamin)
+
+lbls <- c("Laki-laki", "Perempuan")
+pct <- round(slices/sum(slices)*100)
+lbls <- paste(lbls, pct) 
+lbls <- paste(lbls,"%",sep="") 
+pie(slices,labels = lbls, col=c("blue", "red"),
+   main="Pie Chart Gender Responden")
+```
+
+
+Diagram pie chart status responden:
+```{r}
+status <- table(dfTree$Status)
+lbls <- c("Pekerja", "Pelajar")
+pct <- round(status/sum(status)*100)
+lbls <- paste(lbls, pct) 
+lbls <- paste(lbls,"%",sep="") 
+pie(status,labels = lbls, col=c("blue", "red"),
+   main="Pie Chart Status Responden")
+
+```
+
+Histogram Usia
+```{r}
+hist(dfTree$Usia, main = "Distribusi Usia Responden", xlab = "Usia", ylab="Frekuensi", xlim = c(15,40))
+
+```
+
+Visualisasi lain:
+```{r}
+# PLOT PENDAPATAN
+boxplot(dfTree$Pendapatan~dfTree$JenisKelamin, ylab = "Pendapatan / Uang Jajan", xlab = "Jenis Kelamin")
+boxplot(dfTree$Pendapatan~dfTree$Status, ylab = "Pendapatan / Uang Jajan", xlab = "Status")
+
+# PLOT PENGELUARAN
+boxplot(dfTree$Pengeluaran~dfTree$JenisKelamin, ylab = "Pengeluaran", xlab = "Jenis Kelamin")
+boxplot(dfTree$Pengeluaran~dfTree$Status, ylab = "Pengeluaran", xlab = "Status")
+
+# PLOT FREKUENSI BELANJA ONLINE
+boxplot(dfTree$SeringnyaBelanjaOnline~dfTree$JenisKelamin, ylab = "Frekuensi Belanja Online", xlab = "Jenis Kelamin")
+boxplot(dfTree$SeringnyaBelanjaOnline~dfTree$Status, ylab = "Frekuensi Belanja Online", xlab = "Status")
+
+# PLOT
+plot(dfTree$Pendapatan, dfTree$Pengeluaran) # orang yang lebih banyak duit cenderung lebih besar pengeluarannya jg
+ggplot(dfTree)+aes(Pendapatan, fill = Status, color = Status)+geom_histogram(binwidth = 5000000)
+
+ggplot(dfTree)+aes(Pengeluaran, fill = Status, color = Status)+geom_histogram(binwidth=5000000)
+
+ggplot(dfTree)+aes(Pendapatan, fill = JenisKelamin, color = JenisKelamin)+geom_histogram(binwidth = 5000000)
+
+```
+
+
+## Modelling: Decision Tree
+
+### Split data into testing and training
+```{r}
+
+myData<-dfTree
+nim=041925
+set.seed(nim)
+samp <- sample(nrow(myData), 0.7 * nrow(myData))
+training <- myData[samp, ]
+testing <- myData[-samp, ]
+```
+
+### Build model and predict
+```{r}
+dat_party <- ctree(KemungkinanBelanja ~., data=training)
+plot(dat_party, type="simple")
+print(dat_party)
+
+predict_party <- predict(dat_party,testing,type="response")
+table_party=table(predict_party,testing$KemungkinanBelanja)
+```
+
+## Evaluasi Model
+```{r}
+
+confusionMatrix(table_party)
+
+```
